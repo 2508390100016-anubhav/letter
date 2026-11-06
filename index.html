@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ASCII Glowing Heart</title>
+  <title>Letter to Rose</title>
   <style>
     * {
       box-sizing: border-box;
@@ -11,17 +11,17 @@
       padding: 0;
     }
     body {
-      background-color: #050508;
+      background-color: #07070b;
       color: #fff;
       display: flex;
+      flex-direction: column;
       justify-content: center;
       align-items: center;
       min-height: 100vh;
       overflow: hidden;
       font-family: 'Courier New', Courier, monospace;
     }
-    #matrix-container {
-      position: relative;
+    #container {
       display: flex;
       justify-content: center;
       align-items: center;
@@ -33,9 +33,7 @@
       letter-spacing: 2px;
       user-select: none;
       white-space: pre;
-      text-shadow: 0 0 8px rgba(255, 60, 60, 0.4);
     }
-    /* Mobile responsive sizing */
     @media (max-width: 600px) {
       pre {
         font-size: 8px;
@@ -50,92 +48,153 @@
   </style>
 </head>
 <body>
-  <div id="matrix-container">
-    <pre id="output"></pre>
+  <div id="container">
+    <pre id="display"></pre>
   </div>
 
   <script>
-    const output = document.getElementById("output");
-
-    // Grid size
-    const ROWS = 36;
-    const COLS = 62;
+    const display = document.getElementById("display");
+    const ROWS = 38;
+    const COLS = 64;
     const CHARS = "01$#@%&*+=~-/:;|<>{}[]()";
 
-    function insideHeart(x, y) {
-      // Math formula for heart curve: (x^2 + y^2 - 1)^3 - x^2 * y^3 <= 0
-      const nx = (x - COLS / 2) / (COLS * 0.28);
-      const ny = -(y - ROWS * 0.45) / (ROWS * 0.32);
-      const a = nx * nx + ny * ny - 1;
-      return (a * a * a - nx * nx * ny * ny * ny) <= 0;
+    function rndChar() {
+      return CHARS[Math.floor(Math.random() * CHARS.length)];
     }
 
-    function distanceToHeartBorder(x, y) {
-      const nx = (x - COLS / 2) / (COLS * 0.28);
-      const ny = -(y - ROWS * 0.45) / (ROWS * 0.32);
-      const a = nx * nx + ny * ny - 1;
-      return a * a * a - nx * nx * ny * ny * ny;
-    }
+    // Envelope / Letter test
+    function getEnvelopeChar(r, c) {
+      const top = 6, bottom = 32, left = 8, right = 56;
+      if (r < top || r > bottom || c < left || c > right) return null;
 
-    let progress = 0; // 0 (full matrix) to 1 (isolated heart)
-    let frame = 0;
-
-    function render() {
-      frame++;
-      let html = "";
-
-      // Progressively carve out the heart like in the video
-      if (progress < 1) {
-        progress += 0.006;
+      // Outer border
+      if (r === top || r === bottom || c === left || c === right) {
+        return { ch: '#', color: 'rgba(210, 160, 240, 0.9)' };
       }
 
-      const pulse = 1 + 0.04 * Math.sin(frame * 0.1);
+      // Envelope flap diagonals
+      const centerCol = (left + right) / 2;
+      const flapY = top + Math.abs(c - centerCol) * 0.7;
+      if (Math.abs(r - flapY) < 0.8 && r <= top + 15) {
+        return { ch: '/', color: 'rgba(180, 140, 255, 0.85)' };
+      }
+
+      // Small heart seal in center of letter
+      const hx = (c - centerCol) / 5.5;
+      const hy = -(r - (top + 13)) / 5.5;
+      const a = hx * hx + hy * hy - 1;
+      if (a * a * a - hx * hx * hy * hy * hy <= 0) {
+        return { ch: '@', color: 'rgba(255, 60, 90, 0.95)' };
+      }
+
+      // Inner letter texture lines
+      if (r > top + 16 && r < bottom - 3 && (r % 2 === 0) && c > left + 6 && c < right - 6) {
+        return { ch: '=', color: 'rgba(200, 190, 150, 0.35)' };
+      }
+
+      return { ch: '.', color: 'rgba(120, 100, 160, 0.15)' };
+    }
+
+    // Rose geometry (Rose bud + Leaves + Stem)
+    function getRoseChar(r, c) {
+      const cx = COLS / 2;
+      const cy = 13;
+
+      // 1. Rose Flower Bud (layered petals)
+      const dx = (c - cx) / 10;
+      const dy = (r - cy) / 8;
+      const d = Math.sqrt(dx * dx + dy * dy);
+
+      if (d <= 1.05) {
+        const swirl = Math.sin(Math.atan2(dy, dx) * 3 + d * 4);
+        if (swirl > -0.2) {
+          const redVal = Math.floor(255 - d * 30);
+          const greenVal = Math.floor(40 + swirl * 40);
+          return { ch: rndChar(), color: `rgb(${redVal}, ${greenVal}, 70)` };
+        }
+      }
+
+      // 2. Stem
+      if (r >= 20 && r <= 35) {
+        const stemX = cx + Math.sin(r * 0.3) * 1.2;
+        if (Math.abs(c - stemX) < 1.1) {
+          return { ch: '|', color: 'rgba(60, 200, 90, 0.9)' };
+        }
+      }
+
+      // 3. Leaves
+      // Left leaf
+      const ldx = (c - (cx - 7)) / 6;
+      const ldy = (r - 24) / 3.5;
+      if (ldx * ldx + ldy * ldy < 1 && (ldx + ldy) > -0.3) {
+        return { ch: '%', color: 'rgba(80, 220, 110, 0.85)' };
+      }
+
+      // Right leaf
+      const rdx = (c - (cx + 7)) / 6;
+      const rdy = (r - 27) / 3.5;
+      if (rdx * rdx + rdy * rdy < 1 && (rdx - rdy) < 0.3) {
+        return { ch: '&', color: 'rgba(80, 220, 110, 0.85)' };
+      }
+
+      return null;
+    }
+
+    let phase = 0; // 0 = Letter reveal, 1 = Morphing/Burst, 2 = Blooming Rose
+    let progress = 0;
+
+    function render() {
+      progress += 0.008;
+      if (progress < 1.0) {
+        phase = 0; // Letter
+      } else if (progress < 1.8) {
+        phase = 1; // Transition burst
+      } else {
+        phase = 2; // Rose reveal
+      }
+
+      let html = "";
+      const transFactor = Math.min(1, Math.max(0, (progress - 1.0) / 0.8));
 
       for (let r = 0; r < ROWS; r++) {
         for (let c = 0; c < COLS; c++) {
-          const adjC = (c - COLS / 2) / pulse + COLS / 2;
-          const adjR = (r - ROWS / 2) / pulse + ROWS / 2;
+          const env = getEnvelopeChar(r, c);
+          const rose = getRoseChar(r, c);
 
-          const isHeart = insideHeart(adjC, adjR);
-          const dist = distanceToHeartBorder(adjC, adjR);
-
-          // Random ASCII character
-          const ch = CHARS[Math.floor(Math.random() * CHARS.length)];
-
-          if (isHeart) {
-            // Heart core gradient: Bright glowing orange/red in center
-            const intensity = Math.min(1, Math.max(0.3, 1 - Math.abs(dist) * 1.5));
-            const red = 255;
-            const green = Math.floor(70 + 130 * (1 - intensity));
-            const blue = Math.floor(40 + 70 * (1 - intensity));
-
-            // Small twinkle
-            const alpha = 0.8 + Math.random() * 0.2;
-            html += `<span style="color: rgba(${red}, ${green}, ${blue}, ${alpha}); font-weight: bold;">${ch}</span>`;
-          } else {
-            // Background matrix fades out as progress increases
-            const fadeThreshold = Math.random();
-            const rayDist = Math.abs(r - ROWS * 0.45);
-
-            if (fadeThreshold > progress) {
-              // Outer ambient blue / dark cyan glow
-              if (rayDist < 6 && Math.random() > 0.4) {
-                html += `<span style="color: rgba(90, 160, 255, 0.55);">${ch}</span>`;
-              } else {
-                html += `<span style="color: rgba(140, 140, 160, 0.25);">${ch}</span>`;
-              }
-            } else if (dist < 0.25 && Math.random() < (1 - progress) * 0.5) {
-              // Aura particles around the edge
-              html += `<span style="color: rgba(255, 100, 120, 0.35);">${ch}</span>`;
+          if (phase === 0) {
+            // Letter phase
+            if (env && Math.random() < Math.min(1, progress * 1.4)) {
+              html += `<span style="color:${env.color}">${env.ch}</span>`;
             } else {
               html += " ";
+            }
+          } else if (phase === 1) {
+            // Morph phase: envelope dissolves, rose starts emerging
+            if (rose && Math.random() < transFactor) {
+              html += `<span style="color:${rose.color}">${rose.ch}</span>`;
+            } else if (env && Math.random() > transFactor * 1.2) {
+              html += `<span style="color:${env.color}; opacity:${1 - transFactor}">${rndChar()}</span>`;
+            } else {
+              html += " ";
+            }
+          } else {
+            // Full Rose glowing phase
+            if (rose) {
+              html += `<span style="color:${rose.color}">${rose.ch}</span>`;
+            } else {
+              // Soft background sparks
+              if (Math.random() < 0.006) {
+                html += `<span style="color:rgba(255, 120, 160, 0.4)">.</span>`;
+              } else {
+                html += " ";
+              }
             }
           }
         }
         html += "\n";
       }
 
-      output.innerHTML = html;
+      display.innerHTML = html;
       requestAnimationFrame(render);
     }
 
